@@ -4,7 +4,7 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.decorators import renderer_classes
 from rest_framework import pagination
 
-from marketmanager import exceptions
+from . import exceptions
 
 
 class InfluxGenericViewSet(ViewSet):
