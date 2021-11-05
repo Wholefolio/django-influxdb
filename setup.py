@@ -16,7 +16,7 @@ setup(name='django-influxdb',
       license='MIT',
       install_requires=[
           'django>=2.2',
-          'django_rest_framework>3.0',
+          'djangorestframework>3.0',
           'influxdb-client>=1.16'
       ],
       packages=['django_influxdb'])
