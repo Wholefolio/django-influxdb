@@ -94,7 +94,7 @@ class InfluxModel:
         tags = self._generate_tags()
         tables = client.query(time_start=time_start, time_stop=time_stop, tags=tags)
         if not tables:
-            return {}
+            return []
         self._flatten_results(tables)
         self.clean_results()
         return self.results

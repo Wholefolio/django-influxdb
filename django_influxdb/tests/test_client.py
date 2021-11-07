@@ -1,6 +1,8 @@
 import unittest
+from unittest.case import TestCase
 
 from django_influxdb.influxdb import Client
+from django_influxdb import exceptions
 
 
 class TestInfluxClient(unittest.TestCase):
@@ -36,3 +38,35 @@ class TestBuildQuery(unittest.TestCase):
         assert "sort" in self.client.query
         for i in self.client.sorting_tags:
             assert i in self.client.query
+
+
+class TestCheckTime(TestCase):
+    def setUp(self):
+        self.client = Client(measurement="test-checktime")
+
+    def test_iso_date(self):
+        timestamp = "2021-10-10T14:00"
+        res = self.client._check_time(timestamp)
+        assert timestamp in res
+        assert "time" in res
+
+    def test_bad_date(self):
+        timestamp = "2021-48"
+        with self.assertRaises(exceptions.InvalidTimestamp):
+            self.client._check_time(timestamp)
+
+    def test_influx_relative(self):
+        timestamp = "30m"
+        res = self.client._check_time(timestamp)
+        assert timestamp in res
+        assert "-" in res
+
+    def test_bad_relative_timestamp(self):
+        timestamp = "40q"
+        with self.assertRaises(exceptions.InvalidTimestamp):
+            self.client._check_time(timestamp)
+
+    def test_now(self):
+        timestamp = "now()"
+        res = self.client._check_time(timestamp)
+        assert timestamp in res

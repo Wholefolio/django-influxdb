@@ -3,7 +3,8 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 from django.utils import timezone
 from django.conf import settings
-
+from dateutil import parser
+from . import exceptions
 logger = logging.getLogger("marketmanager")
 
 
@@ -21,10 +22,30 @@ class Client:
         self.tags = []
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
 
-    def _build_query(self):
+    def _check_time(self, timestamp: str) -> str:
+        """Verify the start and stop times are in the proper format"""
+        if timestamp == "now()":
+            return timestamp
+        try:
+            # Try parsing it as an ISO timestamp
+            parser.isoparse(timestamp)
+            # Pass the timestamp string to the Influx time function
+            return "time(v: \"{}\")".format(timestamp)
+        except ValueError:
+            # Timestamp is not a ISO timestamp, check if it's a InfluxDB supported relative time
+            if timestamp[-1] not in ["h", "m", "s", "d"]:
+                raise exceptions.InvalidTimestamp()
+            try:
+                # Remove the timeframe notation and check if its a proper int
+                int(timestamp[:-1])
+            except ValueError:
+                raise exceptions.InvalidTimestamp()
+            return "-{}".format(timestamp)
+
+    def _build_query(self) -> str:
         """Build InfluxDB query"""
         query = f'from(bucket: "{self.bucket}")'
-        query += f' |> range(start: -{self.time_start}, stop: {self.time_stop})'
+        query += f' |> range(start: {self.time_start}, stop: {self.time_stop})'
         query += f' |> filter(fn: (r) => (r._measurement == "{self.measurement}"))'
         if self.tags:
             query += ' |> filter(fn: (r) => ('
@@ -54,8 +75,8 @@ class Client:
     def query(self, time_start: str, time_stop: str = "now()", tags: list = []):
         """Query the InfluxDB - returns List of InfluxDB tables which contain records"""
         self.tags = tags
-        self.time_start = time_start
-        self.time_stop = time_stop
+        self.time_start = self._check_time(time_start)
+        self.time_stop = self._check_time(time_stop)
         self._build_query()
         logger.debug(f"Running query: \"{self.query}\"")
         return self.client.query_api().query(self.query, org=settings.INFLUXDB_ORG,)

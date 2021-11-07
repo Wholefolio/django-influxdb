@@ -68,7 +68,11 @@ class ListViewSet(InfluxGenericViewSet):
         time_start = request.GET.get("time_start")
         time_stop = request.GET.get("time_stop", "now()")
         data = self.generate_tags(request)
-        dataset = self.influx_model(data=data).filter(time_start, time_stop)
+        try:
+            dataset = self.influx_model(data=data).filter(time_start, time_stop)
+        except exceptions.InvalidTimestamp as e:
+            return Response(f"{e}", status=400)
+        print(dataset)
         page = self.paginator.paginate_queryset(dataset, request, view=self)
         if page is not None:
             return self.paginator.get_paginated_response(page)
