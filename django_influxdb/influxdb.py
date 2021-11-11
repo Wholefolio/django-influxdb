@@ -10,19 +10,20 @@ logger = logging.getLogger("marketmanager")
 
 class Client:
     """InfluxDB client"""
-    def __init__(self, measurement: str, bucket: str = settings.INFLUXDB_DEFAULT_BUCKET,
+    def __init__(self, measurement: str, bucket: str = settings.INFLUXDB_DEFAULT_BUCKET, drop_fields: list = [],
                  sorting_tags: list = []):
         self.measurement = measurement
         self.client = InfluxDBClient(url=settings.INFLUXDB_URL, token=settings.INFLUXDB_TOKEN, timeout=3000)
         self.bucket = bucket
         self.time_start = "30m"
         self.time_stop = "now()"
-        self.drop_internal_fields = False
+        self.drop_fields = drop_fields
         self.sorting_tags = sorting_tags
         self.tags = []
         self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
 
-    def _check_time(self, timestamp: str) -> str:
+    @classmethod
+    def _check_time(cls, timestamp: str) -> str:
         """Verify the start and stop times are in the proper format"""
         if timestamp == "now()":
             return timestamp
@@ -33,7 +34,7 @@ class Client:
             return "time(v: \"{}\")".format(timestamp)
         except ValueError:
             # Timestamp is not a ISO timestamp, check if it's a InfluxDB supported relative time
-            if timestamp[-1] not in ["h", "m", "s", "d"]:
+            if timestamp[-1] not in ["h", "m", "s", "d", "w"]:
                 raise exceptions.InvalidTimestamp()
             try:
                 # Remove the timeframe notation and check if its a proper int
@@ -53,8 +54,10 @@ class Client:
             for tag, value in self.tags.items():
                 tag_queries.append(f'r.{tag} == "{value}"')
             query += '{}))'.format(" and ".join(tag_queries))
-        if self.drop_internal_fields:
-            query += ' |> drop(columns: ["_start", "_stop"])'
+        if self.drop_fields:
+            query += ' |> drop(columns: ["{}"])'.format('","'.join(self.drop_fields))
+        if self.aggregate:
+            query += f' |> aggregateWindow(every: {self.aggregate}, fn: mean, createEmpty: false)'
         if self.sorting_tags:
             # Influx doesn't like the single quotes when building the query columns, hence this
             query += ' |> sort(columns: ["{}"])'.format('","'.join(self.sorting_tags))
@@ -62,7 +65,7 @@ class Client:
         return query
 
     def write(self, tags: dict, fields: list, timestamp: bool = True):
-        """Write a single timeseries point to the InfluxDB"""
+        """Write qa single timeseries point to the InfluxDB"""
         point = Point(self.measurement)
         for tag, value in tags.items():
             point.tag(tag, value)
@@ -72,11 +75,12 @@ class Client:
             point.time(timezone.now(), WritePrecision.MS)
         return self.write_api.write(self.bucket, settings.INFLUXDB_ORG, point)
 
-    def query(self, time_start: str, time_stop: str = "now()", tags: list = []):
+    def query(self, time_start: str, time_stop: str = "now()", tags: list = [], aggregate: str = None):
         """Query the InfluxDB - returns List of InfluxDB tables which contain records"""
         self.tags = tags
         self.time_start = self._check_time(time_start)
         self.time_stop = self._check_time(time_stop)
+        self.aggregate = aggregate
         self._build_query()
         logger.debug(f"Running query: \"{self.query}\"")
         return self.client.query_api().query(self.query, org=settings.INFLUXDB_ORG,)

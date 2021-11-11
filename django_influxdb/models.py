@@ -1,3 +1,4 @@
+from django.db import models
 from functools import reduce
 import logging
 from django_influxdb.influxdb import Client as InfluxClient
@@ -5,16 +6,32 @@ from django_influxdb.influxdb import Client as InfluxClient
 logger = logging.getLogger()
 
 
+class InfluxTasks(models.Model):
+    """Store the influx tasks in the RDBMS"""
+    name = models.CharField(max_length=256)
+    flux = models.TextField()
+    task_interval = models.CharField(max_length=50)
+    created = models.BooleanField(default=False)
+    destination_bucket = models.CharField(max_length=256)
+
+    class Meta:
+        app_label = 'django_influxdb'
+
+
 class InfluxModel:
     """Influx Base Model - concept was taken from Django ORM models"""
     required_influx_tags = []
     optional_influx_tags = []
     fields = []
+    drop_fields = []
+    default_aggregation = "5m"
 
     def __init__(self, **kwargs):
         self.data = kwargs.get("data", {})
         self.validated_data = {"tags": {}, "fields": []}
         self.influx_tags = self.required_influx_tags + self.optional_influx_tags
+        if kwargs.get("sorting_tags"):
+            self.sorting_tags = kwargs["sorting_tags"]
 
     def _generate_tags(self, exc_on_missing: bool = True) -> dict:
         """Generate a dictionary of tag->value pairs from a list of tags and a data dict"""
@@ -88,11 +105,14 @@ class InfluxModel:
         self.results = output
         return self.results
 
-    def filter(self, time_start: str, time_stop: str = "now()"):
+    def filter(self, time_start: str, time_stop: str = "now()", aggregate: str = None):
         """Query Influx based on the tags from the object (the object must be initialized with the tags)."""
-        client = InfluxClient(measurement=self.measurement, sorting_tags=self.sorting_tags)
+        client = InfluxClient(measurement=self.measurement, sorting_tags=self.sorting_tags,
+                              drop_fields=self.drop_fields)
         tags = self._generate_tags()
-        tables = client.query(time_start=time_start, time_stop=time_stop, tags=tags)
+        if not aggregate:
+            aggregate = self.default_aggregation
+        tables = client.query(time_start=time_start, time_stop=time_stop, tags=tags, aggregate=aggregate)
         if not tables:
             return []
         self._flatten_results(tables)

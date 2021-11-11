@@ -1,0 +1,7 @@
+data = from(bucket: {{source_bucket}})
+|> range(start: {{time_start}})
+|> {{filter}}
+
+data
+|> aggregateWindow(fn: {{aggregate_function | default("mean", true)}}, every: {{aggregate_window | default("1h", true)}})
+|> to(bucket: "{{destination_bucket}}", org: "{{org}}")

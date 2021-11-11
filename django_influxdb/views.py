@@ -12,6 +12,10 @@ class InfluxGenericViewSet(ViewSet):
 
     paginator = pagination.PageNumberPagination()
 
+    @classmethod
+    def _get_sorting_tags(cls):
+        return cls.sorting_tags
+
     def param_check(self):
         missing_query_params = []
         for param in self.required_filter_params:
@@ -67,12 +71,12 @@ class ListViewSet(InfluxGenericViewSet):
     def list(self, request):
         time_start = request.GET.get("time_start")
         time_stop = request.GET.get("time_stop", "now()")
+        aggregate = request.GET.get("aggregate")
         data = self.generate_tags(request)
         try:
-            dataset = self.influx_model(data=data).filter(time_start, time_stop)
+            dataset = self.influx_model(data=data).filter(time_start, time_stop, aggregate)
         except exceptions.InvalidTimestamp as e:
             return Response(f"{e}", status=400)
-        print(dataset)
         page = self.paginator.paginate_queryset(dataset, request, view=self)
         if page is not None:
             return self.paginator.get_paginated_response(page)
