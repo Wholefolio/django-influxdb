@@ -27,7 +27,7 @@ class TestBuildQuery(unittest.TestCase):
         assert "_measurement" in self.client.query
 
     def test_drop_internal_fields(self):
-        self.client.drop_internal_fields = True
+        self.client.drop_fields = ["test_field"]
         self.client._build_query()
         assert "drop" in self.client.query
 
@@ -38,6 +38,12 @@ class TestBuildQuery(unittest.TestCase):
         assert "sort" in self.client.query
         for i in self.client.sorting_tags:
             assert i in self.client.query
+
+    def test_aggregate(self):
+        """Test with the aggregate option"""
+        self.client.aggregate = ["_time"]
+        self.client._build_query()
+        assert "aggregateWindow" in self.client.query
 
 
 class TestCheckTime(TestCase):

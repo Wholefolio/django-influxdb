@@ -11,7 +11,7 @@ class NonExistingOrg(Exception):
         self.message = message
         super().__init__(self.message)
 
-    
+
 class InvalidTimestamp(Exception):
     def __init__(self, message=invalid_timestamp_msg):
         self.message = message

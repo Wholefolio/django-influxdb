@@ -10,13 +10,15 @@ logger = logging.getLogger("marketmanager")
 
 class Client:
     """InfluxDB client"""
-    def __init__(self, measurement: str, bucket: str = settings.INFLUXDB_DEFAULT_BUCKET, drop_fields: list = [],
-                 sorting_tags: list = []):
+    def __init__(self, measurement: str, bucket: str = settings.INFLUXDB_DEFAULT_BUCKET,
+                 drop_fields: list = [], sorting_tags: list = []):
         self.measurement = measurement
         self.client = InfluxDBClient(url=settings.INFLUXDB_URL, token=settings.INFLUXDB_TOKEN, timeout=3000)
         self.bucket = bucket
         self.time_start = "30m"
         self.time_stop = "now()"
+        # Drop fields can be used before aggregations to join multiple InfluxDB tables
+        # that differentiate on those fields
         self.drop_fields = drop_fields
         self.sorting_tags = sorting_tags
         self.tags = []
@@ -56,7 +58,7 @@ class Client:
             query += '{}))'.format(" and ".join(tag_queries))
         if self.drop_fields:
             query += ' |> drop(columns: ["{}"])'.format('","'.join(self.drop_fields))
-        if self.aggregate:
+        if hasattr(self, "aggregate"):
             query += f' |> aggregateWindow(every: {self.aggregate}, fn: mean, createEmpty: false)'
         if self.sorting_tags:
             # Influx doesn't like the single quotes when building the query columns, hence this
