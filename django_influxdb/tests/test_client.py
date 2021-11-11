@@ -62,13 +62,22 @@ class TestCheckTime(TestCase):
             self.client._check_time(timestamp)
 
     def test_influx_relative(self):
-        timestamp = "30m"
+        """Test all influx relative times"""
+        for i in ["s", "m", "h", "d", "w", "mo", "y"]:
+            timestamp = "5" + i
+            res = self.client._check_time(timestamp)
+            assert timestamp in res
+            assert "-" in res
+
+    def test_with_minus(self):
+        """Test with a minus in the timestamp"""
+        timestamp = "-5m"
         res = self.client._check_time(timestamp)
         assert timestamp in res
-        assert "-" in res
+        assert res.count("-") == 1
 
     def test_bad_relative_timestamp(self):
-        timestamp = "40q"
+        timestamp = "5qst"
         with self.assertRaises(exceptions.InvalidTimestamp):
             self.client._check_time(timestamp)
 
