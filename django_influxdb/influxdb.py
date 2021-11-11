@@ -43,6 +43,8 @@ class Client:
                 int(timestamp[:-1])
             except ValueError:
                 raise exceptions.InvalidTimestamp()
+            if timestamp[0] == "-":
+                return timestamp
             return "-{}".format(timestamp)
 
     def _build_query(self) -> str:
