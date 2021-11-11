@@ -36,12 +36,7 @@ class Client:
             return "time(v: \"{}\")".format(timestamp)
         except ValueError:
             # Timestamp is not a ISO timestamp, check if it's a InfluxDB supported relative time
-            if timestamp[-1] not in ["h", "m", "s", "d", "w"]:
-                raise exceptions.InvalidTimestamp()
-            try:
-                # Remove the timeframe notation and check if its a proper int
-                int(timestamp[:-1])
-            except ValueError:
+            if timestamp[-1] not in ["s", "m", "h", "d", "w", "y"] and timestamp[-2:] != "mo":
                 raise exceptions.InvalidTimestamp()
             if timestamp[0] == "-":
                 return timestamp
