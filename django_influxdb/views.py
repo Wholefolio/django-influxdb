@@ -64,7 +64,11 @@ class ListViewSet(InfluxGenericViewSet):
         for param in self.additional_filter_params + self.required_filter_params:
             if param in request.GET:
                 value = request.GET[param]
-                tags[param] = value
+                # Check for multiple values
+                if len(value.split(",")) > 0:
+                    tags[param] = value.split(",")
+                else:
+                    tags[param] = value
         return tags
 
     @renderer_classes(JSONRenderer)
@@ -77,6 +81,9 @@ class ListViewSet(InfluxGenericViewSet):
             dataset = self.influx_model(data=data).filter(time_start, time_stop, aggregate)
         except exceptions.InvalidTimestamp as e:
             return Response(f"{e}", status=400)
+        except exceptions.InfluxApiException as e:
+            print(e)
+            return Response("Bad request - check required fields for proper formating", status=400)
         page = self.paginator.paginate_queryset(dataset, request, view=self)
         if page is not None:
             return self.paginator.get_paginated_response(page)

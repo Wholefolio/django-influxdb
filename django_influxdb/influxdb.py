@@ -1,6 +1,7 @@
 import logging
 from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client.rest import ApiException
 from django.utils import timezone
 from django.conf import settings
 from dateutil import parser
@@ -51,7 +52,13 @@ class Client:
             query += ' |> filter(fn: (r) => ('
             tag_queries = []
             for tag, value in self.tags.items():
-                tag_queries.append(f'r.{tag} == "{value}"')
+                if isinstance(value, list):
+                    tmp = []
+                    for v in value:
+                        tmp.append(f'r.{tag} == "{v}"')
+                    tag_queries.append(" or ".join(tmp))
+                else:
+                    tag_queries.append(f'r.{tag} == "{value}"')
             query += '{}))'.format(" and ".join(tag_queries))
         if self.drop_fields:
             query += ' |> drop(columns: ["{}"])'.format('","'.join(self.drop_fields))
@@ -82,4 +89,7 @@ class Client:
         self.aggregate = aggregate
         self._build_query()
         logger.debug(f"Running query: \"{self.query}\"")
-        return self.client.query_api().query(self.query, org=settings.INFLUXDB_ORG,)
+        try:
+            return self.client.query_api().query(self.query, org=settings.INFLUXDB_ORG,)
+        except ApiException as e:
+            raise exceptions.InfluxApiException(e)

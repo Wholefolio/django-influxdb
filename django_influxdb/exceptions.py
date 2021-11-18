@@ -2,6 +2,10 @@ invalid_timestamp_msg = "Timestamp is not a valid ISO datetime or InfluxDB relat
 non_existing_org_msg = "Organization doesn't exist in InfluxDB"
 
 
+class InfluxApiException(Exception):
+    pass
+
+
 class MissingParametersException(Exception):
     pass
 
