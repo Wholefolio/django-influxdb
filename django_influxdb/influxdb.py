@@ -14,7 +14,10 @@ class Client:
     def __init__(self, measurement: str, bucket: str = settings.INFLUXDB_DEFAULT_BUCKET,
                  drop_fields: list = [], sorting_tags: list = []):
         self.measurement = measurement
-        self.client = InfluxDBClient(url=settings.INFLUXDB_URL, token=settings.INFLUXDB_TOKEN, timeout=3000)
+        timeout = 3000
+        if hasattr(settings, "INFLUXDB_TIMEOUT"):
+            timeout = settings.INFLUXDB_TIMEOUT
+        self.client = InfluxDBClient(url=settings.INFLUXDB_URL, token=settings.INFLUXDB_TOKEN, timeout=timeout)
         self.bucket = bucket
         self.time_start = "30m"
         self.time_stop = "now()"
