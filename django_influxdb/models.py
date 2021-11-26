@@ -8,7 +8,7 @@ logger = logging.getLogger()
 
 class InfluxTasks(models.Model):
     """Store the influx tasks in the RDBMS"""
-    name = models.CharField(max_length=256)
+    name = models.CharField(max_length=256, unique=True)
     flux = models.TextField()
     task_interval = models.CharField(max_length=50)
     created = models.BooleanField(default=False)
@@ -108,7 +108,7 @@ class InfluxModel:
     def filter(self, time_start: str, time_stop: str = "now()", aggregate: str = None):
         """Query Influx based on the tags from the object (the object must be initialized with the tags)."""
         client = InfluxClient(measurement=self.measurement, sorting_tags=self.sorting_tags,
-                              drop_fields=self.drop_fields)
+                              bucket=self.bucket, drop_fields=self.drop_fields)
         tags = self._generate_tags()
         if not aggregate:
             aggregate = self.default_aggregation
@@ -122,6 +122,6 @@ class InfluxModel:
     def save(self):
         """Creates a new timeseries entry in Influx from this object"""
         self._validate()
-        client = InfluxClient(self.measurement)
+        client = InfluxClient(self.measurement, bucket=self.bucket)
         result = client.write(**self.validated_data)
         return result
