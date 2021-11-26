@@ -83,7 +83,8 @@ class EveryTask(BaseTask):
         except InfluxTasks.DoesNotExist:
             pass
 
-    def create_from_template(self, filter: str, task_interval: str, time_start: str, destination_bucket: str) -> str:
+    def create_from_template(self, filter: str, task_interval: str, time_start: str,
+                             destination_bucket: str) -> str:
         """Create a new InfluxDB task from a Jinja2 template from the filesystem."""
         self.filter = filter
         self.task_interval = task_interval
@@ -101,7 +102,8 @@ class EveryTask(BaseTask):
         db_obj = self.get_from_db()
         org = self._get_org()
         self._get_or_create_destination_bucket(db_obj.destination_bucket)
-        return self.task_api.create_task_every(db_obj.name, db_obj.flux, db_obj.task_interval, organization=org)
+        return self.task_api.create_task_every(db_obj.name, db_obj.flux, db_obj.task_interval,
+                                               organization=org)
 
     @classmethod
     def run_task(self, name):
