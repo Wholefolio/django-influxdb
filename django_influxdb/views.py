@@ -59,30 +59,35 @@ class ListViewSet(InfluxGenericViewSet):
     additional_filter_params = []
     required_filter_params = []
 
-    def generate_tags(self, request):
+    def _check_and_split_value(self, value):
+        # Check for multiple values
+        if isinstance(value, str):
+            if len(value.split(",")) > 0:
+                return value.split(",")
+        return value
+
+    def generate_tags(self, request, *args, **kwargs):
         tags = {}
         for param in self.additional_filter_params + self.required_filter_params:
             if param in request.GET:
                 value = request.GET[param]
-                # Check for multiple values
-                if len(value.split(",")) > 0:
-                    tags[param] = value.split(",")
-                else:
-                    tags[param] = value
+                tags[param] = self._check_and_split_value(value)
+            elif param in kwargs:
+                value = kwargs[param]
+                tags[param] = self._check_and_split_value(value)
         return tags
 
     @renderer_classes(JSONRenderer)
-    def list(self, request):
+    def list(self, request, *args, **kwargs):
         time_start = request.GET.get("time_start")
         time_stop = request.GET.get("time_stop", "now()")
         aggregate = request.GET.get("aggregate")
-        data = self.generate_tags(request)
+        data = self.generate_tags(request, *args, **kwargs)
         try:
             dataset = self.influx_model(data=data).filter(time_start, time_stop, aggregate)
         except exceptions.InvalidTimestamp as e:
             return Response(f"{e}", status=400)
-        except exceptions.InfluxApiException as e:
-            print(e)
+        except exceptions.InfluxApiException:
             return Response("Bad request - check required fields for proper formating", status=400)
         page = self.paginator.paginate_queryset(dataset, request, view=self)
         if page is not None:
