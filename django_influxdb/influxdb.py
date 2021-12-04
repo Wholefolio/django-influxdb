@@ -1,6 +1,6 @@
 import logging
 from influxdb_client import InfluxDBClient, Point, WritePrecision
-from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client.client.write_api import WriteType
 from influxdb_client.rest import ApiException
 from django.utils import timezone
 from django.conf import settings
@@ -14,11 +14,14 @@ class Client:
     def __init__(self, measurement: str, bucket: str = settings.INFLUXDB_DEFAULT_BUCKET,
                  drop_fields: list = [], sorting_tags: list = []):
         self.measurement = measurement
-        timeout = 3000
-        if hasattr(settings, "INFLUXDB_TIMEOUT"):
-            timeout = settings.INFLUXDB_TIMEOUT
+        defaults = {"INFLUXDB_TIMEOUT": 3000, "INFLUXDB_BATCH_SIZE": 500, "INFLUXDB_FLUSH_SIZE": 100}
+        for key in defaults:
+            value = defaults[key]
+            if hasattr(settings, "INFLUXDB_TIMEOUT"):
+                value = getattr(settings, key)
+            setattr(self, key, value)
         self.client = InfluxDBClient(url=settings.INFLUXDB_URL, token=settings.INFLUXDB_TOKEN,
-                                     timeout=timeout)
+                                     timeout=self.INFLUXDB_TIMEOUT)
         self.bucket = bucket
         self.time_start = "30m"
         self.time_stop = "now()"
@@ -27,7 +30,9 @@ class Client:
         self.drop_fields = drop_fields
         self.sorting_tags = sorting_tags
         self.tags = []
-        self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
+        self.write_api = self.client.write_api(write_type=WriteType.batching,
+                                               batch_size=self.INFLUXDB_BATCH_SIZE,
+                                               flush_interval=self.INFLUXDB_FLUSH_SIZE)
 
     @classmethod
     def _check_time(cls, timestamp: str) -> str:
