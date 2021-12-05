@@ -10,6 +10,10 @@ class MissingParametersException(Exception):
     pass
 
 
+class BadDataType(Exception):
+    pass
+
+
 class NonExistingOrg(Exception):
     def __init__(self, message=non_existing_org_msg):
         self.message = message

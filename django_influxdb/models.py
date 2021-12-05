@@ -2,6 +2,7 @@ from django.db import models
 from functools import reduce
 import logging
 from django_influxdb.influxdb import Client as InfluxClient
+from django_influxdb import exceptions
 
 logger = logging.getLogger()
 
@@ -63,6 +64,8 @@ class InfluxModel:
     def _validate(self) -> None:
         """Validate the tags and fields in the class are present in the data"""
         logger.debug(f"Starting validation for {self.data}")
+        if not isinstance(self.data, dict) and not isinstance(self.data, list):
+            raise exceptions.BadDataType("Data type must be list or dict")
         if not isinstance(self.data, list):
             self.data = [self.data]
         for item in self.data:
