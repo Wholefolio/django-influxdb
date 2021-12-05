@@ -16,7 +16,7 @@ class Client:
         defaults = {"INFLUXDB_TIMEOUT": 3000, "INFLUXDB_BATCH_SIZE": 500, "INFLUXDB_FLUSH_SIZE": 100}
         for key in defaults:
             value = defaults[key]
-            if hasattr(settings, "INFLUXDB_TIMEOUT"):
+            if hasattr(settings, key):
                 value = getattr(settings, key)
             setattr(self, key, value)
         self.client = InfluxDBClient(url=settings.INFLUXDB_URL, token=settings.INFLUXDB_TOKEN,
