@@ -42,9 +42,7 @@ class TestInfluxModel(unittest.TestCase):
             r = FluxRecord(table=0)
             r.values = MOCK_RECORD
             t.records = [r]
-            tables.append(
-                t
-            )
+            tables.append(t)
         output = self.model._flatten_results(tables)
         for i in output:
             self.assertFalse(isinstance(i, list))

@@ -28,42 +28,48 @@ class InfluxModel:
 
     def __init__(self, **kwargs):
         self.data = kwargs.get("data", {})
-        self.validated_data = {"tags": {}, "fields": []}
+        self.validated_data = []
         self.influx_tags = self.required_influx_tags + self.optional_influx_tags
         if kwargs.get("sorting_tags"):
             self.sorting_tags = kwargs["sorting_tags"]
 
-    def _generate_tags(self, exc_on_missing: bool = True) -> dict:
+    def _generate_tags(self, item, exc_on_missing: bool = True) -> dict:
         """Generate a dictionary of tag->value pairs from a list of tags and a data dict"""
         output = {}
         for key in self.influx_tags:
-            if exc_on_missing and key not in self.data and key in self.required_influx_tags:
+            if exc_on_missing and key not in item and key in self.required_influx_tags:
                 raise KeyError(f"Missing required tag {key} from model data")
-            elif key in self.optional_influx_tags and key not in self.data:
+            elif key in self.optional_influx_tags and key not in item:
                 continue
-            output[key] = self.data[key]
-        self.validated_data["tags"] = output
+            output[key] = item[key]
         return output
 
-    def _generate_fields(self) -> dict:
+    def _generate_fields(self, item) -> dict:
         """Generate the fields """
+        fields = []
         for field_dict in self.fields:
             if "name" not in field_dict or "type" not in field_dict:
                 raise KeyError('Fields must be declared as a dict: {"name": "field_name", "type": "float"}')
             field_name = field_dict["name"]
             field_type = field_dict["type"]
-            if field_name not in self.data:
+            if field_name not in item:
                 raise KeyError(f"Setting the field is mandatory. Missing field: {self.field}")
-            value = self.data[field_name]
+            value = item[field_name]
             # Add the casted value to the list of fields
             field = {"key": field_name, "value": field_type(value)}
-            self.validated_data["fields"].append(field)
+            fields.append(field)
+        return fields
 
     def _validate(self) -> None:
         """Validate the tags and fields in the class are present in the data"""
         logger.debug(f"Starting validation for {self.data}")
-        self._generate_tags()
-        self._generate_fields()
+        if not isinstance(self.data, list):
+            self.data = [self.data]
+        for item in self.data:
+            entry = {}
+            entry["tags"] = self._generate_tags(item)
+            entry["fields"] = self._generate_fields(item)
+        self.validated_data.append(entry)
         logger.debug(f"Finished validation. Validated data: {self.validated_data}")
 
     def _clean_result(self, result):
@@ -123,5 +129,5 @@ class InfluxModel:
         """Creates a new timeseries entry in Influx from this object"""
         self._validate()
         client = InfluxClient(self.measurement, bucket=self.bucket)
-        result = client.write(**self.validated_data)
+        result = client.write(data=self.validated_data)
         return result

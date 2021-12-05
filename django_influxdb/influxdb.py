@@ -1,6 +1,5 @@
 import logging
 from influxdb_client import InfluxDBClient, Point, WritePrecision
-from influxdb_client.client.write_api import WriteType
 from influxdb_client.rest import ApiException
 from django.utils import timezone
 from django.conf import settings
@@ -30,9 +29,12 @@ class Client:
         self.drop_fields = drop_fields
         self.sorting_tags = sorting_tags
         self.tags = []
-        self.write_api = self.client.write_api(write_type=WriteType.batching,
-                                               batch_size=self.INFLUXDB_BATCH_SIZE,
-                                               flush_interval=self.INFLUXDB_FLUSH_SIZE)
+
+    @classmethod
+    def _check_write_item(cls, item) -> bool:
+        if "fields" not in item or "tags" not in item:
+            return False
+        return True
 
     @classmethod
     def _check_time(cls, timestamp: str) -> str:
@@ -79,8 +81,7 @@ class Client:
         self.query = query
         return query
 
-    def write(self, tags: dict, fields: list, timestamp: bool = True):
-        """Write qa single timeseries point to the InfluxDB"""
+    def prepare_point(self, tags: dict, fields: list, timestamp: bool = True):
         point = Point(self.measurement)
         for tag, value in tags.items():
             point.tag(tag, value)
@@ -88,7 +89,18 @@ class Client:
             point.field(field["key"], field["value"])
         if timestamp:
             point.time(timezone.now(), WritePrecision.MS)
-        return self.write_api.write(self.bucket, settings.INFLUXDB_ORG, point)
+        return point
+
+    def write(self, data, timestamp: bool = True):
+        """Write timeseries points to the InfluxDB. Data item structure:
+        {"tags": [], "fields": [{""}]}Each list entry must have a tags and fields key"""
+        points = []
+        for item in data:
+            if not self._check_write_item(item):
+                continue
+            points.append(self.prepare_point(item["tags"], item["fields"], timestamp))
+        with self.client.write_api() as write_api:
+            write_api.write(self.bucket, settings.INFLUXDB_ORG, points)
 
     def query(self, time_start: str, time_stop: str = "now()", tags: list = [], aggregate: str = None):
         """Query the InfluxDB - returns List of InfluxDB tables which contain records"""
