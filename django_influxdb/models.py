@@ -118,7 +118,7 @@ class InfluxModel:
         """Query Influx based on the tags from the object (the object must be initialized with the tags)."""
         client = InfluxClient(measurement=self.measurement, sorting_tags=self.sorting_tags,
                               bucket=self.bucket, drop_fields=self.drop_fields)
-        tags = self._generate_tags()
+        tags = self._generate_tags(self.data)
         if not aggregate:
             aggregate = self.default_aggregation
         tables = client.query(time_start=time_start, time_stop=time_stop, tags=tags, aggregate=aggregate)
