@@ -72,7 +72,7 @@ class InfluxModel:
             entry = {}
             entry["tags"] = self._generate_tags(item)
             entry["fields"] = self._generate_fields(item)
-        self.validated_data.append(entry)
+            self.validated_data.append(entry)
         logger.debug(f"Finished validation. Validated data: {self.validated_data}")
 
     def _clean_result(self, result):
