@@ -78,22 +78,27 @@ class Client:
         if self.sorting_tags:
             # Influx doesn't like the single quotes when building the query columns, hence this
             query += ' |> sort(columns: ["{}"])'.format('","'.join(self.sorting_tags))
+        if self.pivot_tables:
+            query += ' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")'
         self.query = query
         return query
 
-    def prepare_point(self, tags: dict, fields: list, timestamp: bool = True):
+    def prepare_point(self, tags: dict, fields: dict, timestamp: bool = True):
+        """Prepare an Influx point give the tags and fields"""
         point = Point(self.measurement)
         for tag, value in tags.items():
             point.tag(tag, value)
-        for field in fields:
-            point.field(field["key"], field["value"])
+        for field, value in fields.items():
+            point.field(field, value)
         if timestamp:
             point.time(timezone.now(), WritePrecision.MS)
         return point
 
     def write(self, data, timestamp: bool = True):
         """Write timeseries points to the InfluxDB. Data item structure:
-        {"tags": [], "fields": [{""}]}Each list entry must have a tags and fields key"""
+        {"tags": {"tag1": "value1"}, "fields": {"value": 15}}
+        Each list entry must have a tags and fields key
+        """
         points = []
         for item in data:
             if not self._check_write_item(item):
@@ -102,12 +107,14 @@ class Client:
         with self.client.write_api() as write_api:
             write_api.write(self.bucket, settings.INFLUXDB_ORG, points)
 
-    def query(self, time_start: str, time_stop: str = "now()", tags: list = [], aggregate: str = None):
+    def query(self, time_start: str, time_stop: str = "now()", tags: list = [], aggregate: str = None,
+              pivot_tables: bool = False):
         """Query the InfluxDB - returns List of InfluxDB tables which contain records"""
         self.tags = tags
         self.time_start = self._check_time(time_start)
         self.time_stop = self._check_time(time_stop)
         self.aggregate = aggregate
+        self.pivot_tables = pivot_tables
         self._build_query()
         logger.debug(f"Running query: \"{self.query}\"")
         try:

@@ -26,6 +26,7 @@ class InfluxModel:
     fields = []
     drop_fields = []
     default_aggregation = "5m"
+    pivot_tables = False  # Set to true if you have multiple fields and want them in 1 row instead of different tables
 
     def __init__(self, **kwargs):
         self.data = kwargs.get("data", {})
@@ -47,7 +48,7 @@ class InfluxModel:
 
     def _generate_fields(self, item) -> dict:
         """Generate the fields """
-        fields = []
+        fields = {}
         for field_dict in self.fields:
             if "name" not in field_dict or "type" not in field_dict:
                 raise KeyError('Fields must be declared as a dict: {"name": "field_name", "type": "float"}')
@@ -56,9 +57,8 @@ class InfluxModel:
             if field_name not in item:
                 raise KeyError(f"Setting the field is mandatory. Missing field: {self.field}")
             value = item[field_name]
-            # Add the casted value to the list of fields
-            field = {"key": field_name, "value": field_type(value)}
-            fields.append(field)
+            # Add the casted value to the list of ffield_type(value)ields
+            fields[field_name] = field_type(value)
         return fields
 
     def _validate(self) -> None:
@@ -87,6 +87,9 @@ class InfluxModel:
             if tag not in current:
                 continue
             output[tag] = current[tag]
+        for field in self.fields:
+            field_name = field["name"]
+            output[field_name] = current.get(field_name)
         try:
             output[current["_field"]] = current["_value"]
         except KeyError:
@@ -121,7 +124,8 @@ class InfluxModel:
         tags = self._generate_tags(self.data)
         if not aggregate:
             aggregate = self.default_aggregation
-        tables = client.query(time_start=time_start, time_stop=time_stop, tags=tags, aggregate=aggregate)
+        tables = client.query(time_start=time_start, time_stop=time_stop, tags=tags, aggregate=aggregate,
+                              pivot_tables=self.pivot_tables)
         if not tables:
             return []
         self._flatten_results(tables)
