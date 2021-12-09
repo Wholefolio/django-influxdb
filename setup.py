@@ -6,7 +6,7 @@ with open('README.md', 'r') as f:
 
 
 setup(name='django-influxdb',
-      version='0.2.4',
+      version='0.2.5',
       description='Django based InfluxDB manager',
       long_description=readme,
       long_description_content_type='text/markdown',
